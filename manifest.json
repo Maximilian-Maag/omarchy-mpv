@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "Maximilian-Maag.mpv",
+  "name": "mpv",
+  "version": "0.1.0",
+  "author": "Maximilian-Maag",
+  "license": "MIT",
+  "description": "Integrates the installed mpv media player with Omarchy: reads the live colors.toml and generates an mpv theme fragment (subtitle, OSD and window colours) that your own mpv.conf includes, drives a running mpv (play/pause/next/prev/volume) over its JSON IPC socket, and adds Hyprland media-key bindings.",
+  "kinds": [
+    "cli",
+    "hyprland-module"
+  ],
+  "activation": "auto",
+  "entryPoints": {},
+  "omarchy_meta": {
+    "installScript": "install.sh",
+    "hooks": [
+      "theme-set"
+    ],
+    "features": [
+      "Reads the applied theme live from ~/.local/state/omarchy/current/theme/colors.toml — no baked-in palette, any theme works",
+      "Generates ~/.config/mpv/omarchy-theme.conf (subtitle colour/outline, OSD colour/selection, window background)",
+      "Writes to a dedicated file so your existing ~/.config/mpv/mpv.conf is never modified beyond a guarded include= line",
+      "send drives a running mpv over its JSON IPC socket: play, pause, toggle, next, prev, stop, mute, volume",
+      "theme-set hook regenerates the fragment and applies the colours to a running mpv live over IPC",
+      "Hyprland media-key bindings (Super + XF86AudioPlay/Next/Prev/Stop) plus Super+Shift+Alt+M to open mpv",
+      "status reports the applied theme, the generated fragment, the IPC socket and the mpv version"
+    ]
+  }
+}

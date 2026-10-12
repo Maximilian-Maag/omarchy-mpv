@@ -1,0 +1,40 @@
+#!/bin/bash
+# omarchy hook: theme-set — regenerate the mpv theme from the applied theme.
+#
+# `omarchy hook install` copies this file into the hooks directory under its
+# BASENAME, so resolving the plugin relative to the script's own directory lands
+# in the hooks dir, NOT in this plugin. It therefore self-locates: the plugin is
+# found via $OMARCHY_MPV_DIR, the Omarchy plugins dir, or the dev checkout.
+set -euo pipefail
+
+THEME=$(echo "${1:-}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+[[ -z "$THEME" ]] && exit
+
+find_plugin() {
+  local base
+  for base in "${OMARCHY_MPV_DIR:-}" \
+              "${XDG_DATA_HOME:-$HOME/.local/share}/omarchy/plugins/Maximilian-Maag.mpv" \
+              "$HOME/.local/share/omarchy/plugins/Maximilian-Maag.mpv" \
+              "$HOME/.config/omarchy/plugins/Maximilian-Maag.mpv" \
+              "$HOME/Work/omarchy-mpv"; do
+    if [[ -n "$base" && -x "$base/bin/omarchy-mpv" ]]; then
+      printf '%s\n' "$base"
+      return
+    fi
+  done
+  false
+}
+
+PLUGIN=""
+if found="$(find_plugin)"; then
+  PLUGIN="$found"
+fi
+if [[ -z "$PLUGIN" ]]; then
+  exit
+fi
+
+CLI="$PLUGIN/bin/omarchy-mpv"
+# Regenerate the fragment and, if an mpv is running, apply the colours live.
+if ! "$CLI" theme --live &>/dev/null; then
+  : # theme generation failed; nothing more to do
+fi

@@ -1,0 +1,5 @@
+{
+  "theme_conf_path": "mpv/omarchy-theme.conf",
+  "socket_path": "omarchy-mpv.sock",
+  "keybinding": "SUPER + SHIFT + ALT + M"
+}
