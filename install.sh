@@ -61,17 +61,13 @@ if command -v omarchy >/dev/null 2>&1; then
   echo "  Installed theme-set hook (as mpv-theme-set)."
 fi
 
-# ── 6. Wire media-key bindings into Hyprland ──────────────────────────────────
+# ── 6. Wire media-key bindings into Hyprland (rendered from config) ───────────
 HYPR_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr"
 HYPR_MAIN="$HYPR_CONFIG_DIR/hyprland.lua"
 if [[ -f "$HYPR_MAIN" ]]; then
-  cp "$PLUGIN_DIR/bin/bindings.lua" "$HYPR_CONFIG_DIR/mpv-bindings.lua"
-  if ! grep -q "mpv-bindings" "$HYPR_MAIN"; then
-    printf '\n-- omarchy-mpv keybindings\nrequire("hypr.mpv-bindings")\n' >> "$HYPR_MAIN"
-    echo "  Wired keybindings into $HYPR_MAIN"
-  else
-    echo "  Keybindings already wired (updated)."
-  fi
+  # The CLI renders bin/bindings.lua with the configured `keybinding`, so the
+  # installed module always matches config/mpv.json.
+  "$BIN_SRC" bindings
 else
   echo "  WARNING: $HYPR_MAIN not found — add: require(\"hypr.mpv-bindings\")"
 fi

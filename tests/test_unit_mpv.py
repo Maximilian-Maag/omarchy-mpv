@@ -464,6 +464,7 @@ class Commands(unittest.TestCase):
         dest = self.config / "hypr/mpv-bindings.lua"
         self.assertTrue(dest.is_file())
         self.assertIn("o.bind", dest.read_text())
+        self.assertNotIn(mpv.KEYBINDING_TOKEN, dest.read_text())
 
 
 class SendCommand(unittest.TestCase):
@@ -578,8 +579,30 @@ class VersionAndLive(unittest.TestCase):
             self.assertIn(["set_property", "osd-color", "#ddf7ff"], server.commands)
 
 
-if __name__ == "__main__":
-    unittest.main()
+class KeybindingAndRendering(unittest.TestCase):
+    """The configured ``keybinding`` must drive the rendered Hyprland module (#2)."""
+
+    def test_keybinding_defaults_when_unset(self):
+        self.assertEqual(mpv.keybinding({}), mpv.DEFAULT_CONFIG["keybinding"])
+
+    def test_keybinding_uses_the_configured_value(self):
+        self.assertEqual(mpv.keybinding({"keybinding": "SUPER + CTRL + K"}),
+                         "SUPER + CTRL + K")
+
+    def test_render_bindings_substitutes_the_token(self):
+        out = mpv.render_bindings({"keybinding": "SUPER + CTRL + K"},
+                                  'o.bind("{{KEYBINDING}}", "mpv: open", "x")\n')
+        self.assertEqual(out, 'o.bind("SUPER + CTRL + K", "mpv: open", "x")\n')
+        self.assertNotIn(mpv.KEYBINDING_TOKEN, out)
+
+    def test_render_bindings_reads_the_template_from_disk(self):
+        out = mpv.render_bindings({"keybinding": "SUPER + CTRL + K"})
+        self.assertIn('o.bind("SUPER + CTRL + K", "mpv: open"', out)
+        self.assertNotIn(mpv.KEYBINDING_TOKEN, out)
+
+    def test_render_bindings_falls_back_to_the_default_chord(self):
+        self.assertEqual(mpv.render_bindings({}, "{{KEYBINDING}}\n"),
+                         mpv.DEFAULT_CONFIG["keybinding"] + "\n")
 
 
 class UncoveredBranchTests(unittest.TestCase):
@@ -620,3 +643,7 @@ class UncoveredBranchTests(unittest.TestCase):
              mock.patch.object(mpv, "ipc_request", side_effect=OSError("broken pipe")):
             colours = {"foreground": "#ffffff", "background": "#000000", "accent": "#123456"}
             self.assertFalse(mpv.apply_live({}, colours))
+
+
+if __name__ == "__main__":
+    unittest.main()

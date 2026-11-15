@@ -210,5 +210,27 @@ class KeybindingDoesNotCollide(unittest.TestCase):
         self.assertNotIn('o.bind("SUPER + SHIFT + ALT + M"', text)
 
 
+class BindingsRenderedFromConfig(unittest.TestCase):
+    """HAZARD: a hardcoded chord in bin/bindings.lua makes config/mpv.json's
+    `keybinding` display-only — status would report a new value the installed
+    module never uses (#2). The module must be rendered from the template.
+    """
+
+    def test_template_carries_the_keybinding_token(self):
+        text = (ROOT / "bin/bindings.lua").read_text()
+        self.assertIn(mpv.KEYBINDING_TOKEN, text)
+        # ... and no literal chord, so the config is the single source of truth.
+        self.assertNotIn('o.bind("SUPER + SHIFT + ALT + V"', text)
+
+    def test_rendered_module_uses_the_configured_chord(self):
+        rendered = mpv.render_bindings({"keybinding": "SUPER + CTRL + K"})
+        self.assertIn('o.bind("SUPER + CTRL + K", "mpv: open"', rendered)
+        self.assertNotIn(mpv.KEYBINDING_TOKEN, rendered)
+
+    def test_install_renders_through_the_cli(self):
+        text = (ROOT / "install.sh").read_text()
+        self.assertIn('"$BIN_SRC" bindings', text)
+
+
 if __name__ == "__main__":
     unittest.main()

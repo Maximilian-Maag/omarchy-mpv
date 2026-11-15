@@ -143,6 +143,22 @@ class CliIntegration(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertTrue((hypr / "mpv-bindings.lua").is_file())
         self.assertIn('require("hypr.mpv-bindings")', (hypr / "hyprland.lua").read_text())
+        # Rendered, not copied: the token is gone and the chord is resolved.
+        dest = (hypr / "mpv-bindings.lua").read_text()
+        self.assertNotIn("{{KEYBINDING}}", dest)
+        self.assertIn('o.bind("SUPER + SHIFT + ALT + V", "mpv: open"', dest)
+
+    def test_bindings_render_the_configured_keybinding(self):
+        cfg = self.base / "mpv.json"
+        cfg.write_text(json.dumps({"keybinding": "SUPER + CTRL + K"}))
+        hypr = self.config / "hypr"
+        hypr.mkdir(parents=True)
+        (hypr / "hyprland.lua").write_text("-- main\n")
+        proc = self.run_cli("--config", str(cfg), "bindings")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        dest = (hypr / "mpv-bindings.lua").read_text()
+        self.assertIn('o.bind("SUPER + CTRL + K", "mpv: open"', dest)
+        self.assertNotIn("SUPER + SHIFT + ALT + V", dest)
 
     def test_bindings_idempotent(self):
         hypr = self.config / "hypr"
