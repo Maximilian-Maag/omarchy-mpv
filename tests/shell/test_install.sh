@@ -46,6 +46,18 @@ rc=$?
 
 if (( rc == 0 )); then ok "install.sh exit 0"; else bad "install.sh exit $rc"; cat "$SANDBOX/install.log"; fi
 
+# closing hint must print the configured chord, not the stale SUPER+SHIFT+ALT+M (#5)
+if grep -qF "SUPER + SHIFT + ALT + V opens it" "$SANDBOX/install.log"; then
+  ok "closing hint prints the configured chord"
+else
+  bad "closing hint did not print the configured chord"; cat "$SANDBOX/install.log"
+fi
+if grep -qi "alt.*M opens it" "$SANDBOX/install.log"; then
+  bad "closing hint still advertises the old chord"
+else
+  ok "closing hint does not advertise the old chord"
+fi
+
 if [[ -f "$MPV_DIR/mpv.conf" ]] && grep -q "my precious config" "$MPV_DIR/mpv.conf"; then
   ok "existing mpv.conf preserved"
 else
@@ -133,6 +145,11 @@ if grep -q 'o.bind("SUPER + CTRL + K", "mpv: open"' "$XDG_CONFIG_HOME/hypr/mpv-b
   ok "installed binding uses the configured keybinding"
 else
   bad "installed binding did not use the configured keybinding"
+fi
+if grep -qF "SUPER + CTRL + K opens it" "$CUSTOM/install.log"; then
+  ok "closing hint honours the custom keybinding"
+else
+  bad "closing hint ignored the custom keybinding"
 fi
 rm -rf "$CUSTOM"
 

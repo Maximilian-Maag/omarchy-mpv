@@ -312,5 +312,28 @@ class StdoutAndLiveCompose(unittest.TestCase):
         self.assertIn("applied theme live", err.getvalue())
 
 
+class ClosingHintUsesConfiguredChord(unittest.TestCase):
+    """HAZARD (#5): install.sh's closing hint hardcoded the OLD chord (SUPER +
+    SHIFT + ALT + M), contradicting the module step 6 had just rendered from
+    config/mpv.json (which moved the binding to SUPER + SHIFT + ALT + V). The
+    hint must print the configured chord, read back from the CLI.
+    """
+
+    def test_install_does_not_advertise_the_stale_chord(self):
+        text = (ROOT / "install.sh").read_text()
+        self.assertNotIn("Super+Shift+Alt+M", text)
+        self.assertNotIn("Super + Shift + Alt + M", text)
+
+    def test_install_reads_the_chord_from_the_cli(self):
+        text = (ROOT / "install.sh").read_text()
+        self.assertIn("sed -n 's/^keybinding=//p'", text)
+
+    def test_paths_command_reports_the_keybinding(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            mpv.main(["paths"])
+        self.assertIn("keybinding=%s" % mpv.DEFAULT_CONFIG["keybinding"], out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

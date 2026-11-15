@@ -89,6 +89,14 @@ else
   echo "  WARNING: $HYPR_MAIN not found — add: require(\"hypr.mpv-bindings\")"
 fi
 
+# Print the chord that was actually installed, read back from the CLI (the same
+# value `paths` reports and `bindings` rendered), so the hint cannot drift from
+# config/mpv.json (#5).
+KEYBINDING="$(printf '%s\n' "$PATHS" | sed -n 's/^keybinding=//p')"
+if [[ -z "$KEYBINDING" ]]; then
+  KEYBINDING="SUPER + SHIFT + ALT + V"
+fi
+
 echo ""
 echo "Done. Try:  omarchy-mpv theme   /   omarchy-mpv status   /   omarchy-mpv send toggle"
-echo "Media keys: Super + Play/Next/Prev/Stop drive mpv; Super+Shift+Alt+M opens it."
+echo "Media keys: Super + Play/Next/Prev/Stop drive mpv; $KEYBINDING opens it."

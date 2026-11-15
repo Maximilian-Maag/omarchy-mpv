@@ -410,6 +410,9 @@ def cmd_paths(args) -> int:
     cfg = load_config(args.config)
     print("theme_conf=%s" % theme_conf_path(cfg))
     print("socket=%s" % socket_path(cfg))
+    # The keybinding, so install.sh's closing hint prints the chord it actually
+    # installed rather than a stale literal (#5).
+    print("keybinding=%s" % keybinding(cfg))
     return 0
 
 
