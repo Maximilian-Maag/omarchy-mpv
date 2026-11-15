@@ -395,6 +395,19 @@ def cmd_bindings(args) -> int:
     return 0
 
 
+def cmd_paths(args) -> int:
+    """Print the resolved theme-fragment and socket paths, one ``key=value`` per line.
+
+    install.sh reads these so its ``include=`` / ``input-ipc-server=`` lines match
+    exactly what the CLI writes and `send` targets — a custom ``theme_conf_path``
+    or ``socket_path`` in config/mpv.json is then honoured instead of ignored.
+    """
+    cfg = load_config(args.config)
+    print("theme_conf=%s" % theme_conf_path(cfg))
+    print("socket=%s" % socket_path(cfg))
+    return 0
+
+
 def cmd_status(args) -> int:
     cfg = load_config(args.config)
     colors_path = theme_colors_path()
@@ -436,6 +449,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     bindings = sub.add_parser("bindings", help="install the Hyprland keybinding module")
     bindings.set_defaults(func=cmd_bindings)
+
+    paths = sub.add_parser("paths", help="print the resolved theme-fragment and socket paths")
+    paths.set_defaults(func=cmd_paths)
 
     status = sub.add_parser("status", help="report the applied theme, fragment and socket")
     status.set_defaults(func=cmd_status)

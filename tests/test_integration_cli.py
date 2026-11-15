@@ -176,6 +176,17 @@ class CliIntegration(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertTrue((self.base / "elsewhere/theme.conf").is_file())
 
+    def test_paths_reports_the_configured_paths(self):
+        cfg = self.base / "mpv.json"
+        cfg.write_text(json.dumps({
+            "theme_conf_path": str(self.base / "elsewhere/theme.conf"),
+            "socket_path": str(self.base / "run/custom.sock"),
+        }))
+        proc = self.run_cli("--config", str(cfg), "paths")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("theme_conf=%s" % (self.base / "elsewhere/theme.conf"), proc.stdout)
+        self.assertIn("socket=%s" % (self.base / "run/custom.sock"), proc.stdout)
+
     def test_send_round_trips_through_a_real_socket(self):
         sock = self.base / "mpv.sock"
         server = FakeMpv(sock)

@@ -4,6 +4,14 @@ set -euo pipefail
 
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Optional config override, passed through to every CLI invocation. The shell
+# tests use it to prove a custom config/mpv.json is honoured; a normal user runs
+# the installer bare and the plugin's own config/mpv.json is used.
+CLI_ARGS=()
+if [[ -n "${OMARCHY_MPV_CONFIG:-}" ]]; then
+  CLI_ARGS=(--config "$OMARCHY_MPV_CONFIG")
+fi
+
 echo "omarchy-mpv: installing from $PLUGIN_DIR"
 
 # ── 1. Validate the plugin ────────────────────────────────────────────────────
@@ -26,27 +34,36 @@ else
 fi
 
 # ── 3. Generate the theme fragment now ────────────────────────────────────────
-"$BIN_SRC" theme || echo "  WARNING: no applied theme yet — run 'omarchy-mpv theme' later."
+"$BIN_SRC" "${CLI_ARGS[@]}" theme || echo "  WARNING: no applied theme yet — run 'omarchy-mpv theme' later."
 
 # ── 4. Make the user's mpv.conf include our fragment + expose the IPC socket ──
-# Nothing the user wrote is ever destroyed: both lines are appended at most once,
-# each guarded by a grep.
+# Both paths come from the CLI (config/mpv.json's theme_conf_path / socket_path),
+# so a custom path is honoured rather than silently ignored. Nothing the user
+# wrote is ever destroyed: both lines are appended at most once, each guarded.
 MPV_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/mpv"
 MPV_CONF="$MPV_DIR/mpv.conf"
-THEME_LINE="include=$MPV_DIR/omarchy-theme.conf"
-SOCKET_LINE="input-ipc-server=${XDG_RUNTIME_DIR:-/tmp}/omarchy-mpv.sock"
+PATHS="$("$BIN_SRC" "${CLI_ARGS[@]}" paths 2>/dev/null || true)"
+THEME_CONF="$(printf '%s\n' "$PATHS" | sed -n 's/^theme_conf=//p')"
+SOCKET_PATH="$(printf '%s\n' "$PATHS" | sed -n 's/^socket=//p')"
+if [[ -z "$THEME_CONF" || -z "$SOCKET_PATH" ]]; then
+  echo "  WARNING: could not read paths from the CLI — using the built-in defaults."
+  THEME_CONF="$MPV_DIR/omarchy-theme.conf"
+  SOCKET_PATH="${XDG_RUNTIME_DIR:-/tmp}/omarchy-mpv.sock"
+fi
+THEME_LINE="include=$THEME_CONF"
+SOCKET_LINE="input-ipc-server=$SOCKET_PATH"
 mkdir -p "$MPV_DIR"
 if [[ ! -f "$MPV_CONF" ]]; then
   printf '# omarchy-mpv integration\n%s\n%s\n' "$THEME_LINE" "$SOCKET_LINE" > "$MPV_CONF"
   echo "  Created $MPV_CONF."
 else
-  if grep -q "omarchy-theme.conf" "$MPV_CONF"; then
-    echo "  mpv.conf already includes omarchy-theme.conf."
+  if grep -qF "include=$THEME_CONF" "$MPV_CONF" || grep -q "omarchy-theme.conf" "$MPV_CONF"; then
+    echo "  mpv.conf already includes $THEME_CONF."
   else
     printf '\n# omarchy-mpv theme\n%s\n' "$THEME_LINE" >> "$MPV_CONF"
     echo "  Added include= to $MPV_CONF (your config is otherwise untouched)."
   fi
-  if grep -q "input-ipc-server" "$MPV_CONF"; then
+  if grep -qF "input-ipc-server=$SOCKET_PATH" "$MPV_CONF" || grep -q "input-ipc-server" "$MPV_CONF"; then
     echo "  mpv.conf already exposes an IPC socket."
   else
     printf '\n# omarchy-mpv IPC socket\n%s\n' "$SOCKET_LINE" >> "$MPV_CONF"
@@ -67,7 +84,7 @@ HYPR_MAIN="$HYPR_CONFIG_DIR/hyprland.lua"
 if [[ -f "$HYPR_MAIN" ]]; then
   # The CLI renders bin/bindings.lua with the configured `keybinding`, so the
   # installed module always matches config/mpv.json.
-  "$BIN_SRC" bindings
+  "$BIN_SRC" "${CLI_ARGS[@]}" bindings
 else
   echo "  WARNING: $HYPR_MAIN not found — add: require(\"hypr.mpv-bindings\")"
 fi

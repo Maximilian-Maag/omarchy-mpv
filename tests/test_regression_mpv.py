@@ -229,7 +229,35 @@ class BindingsRenderedFromConfig(unittest.TestCase):
 
     def test_install_renders_through_the_cli(self):
         text = (ROOT / "install.sh").read_text()
-        self.assertIn('"$BIN_SRC" bindings', text)
+        self.assertIn('"$BIN_SRC" "${CLI_ARGS[@]}" bindings', text)
+
+
+class InstallHonoursConfiguredPaths(unittest.TestCase):
+    """HAZARD: install.sh hardcoded the include= and input-ipc-server= lines, so a
+    custom theme_conf_path / socket_path produced a fragment mpv never included
+    and a socket `send` could not reach (#3). It must read the resolved paths
+    from the CLI, which reads config/mpv.json.
+    """
+
+    def setUp(self):
+        self.text = (ROOT / "install.sh").read_text()
+
+    def test_reads_paths_from_the_cli(self):
+        self.assertIn('"${CLI_ARGS[@]}" paths', self.text)
+
+    def test_uses_the_resolved_theme_conf_for_the_include_line(self):
+        self.assertIn('THEME_LINE="include=$THEME_CONF"', self.text)
+        self.assertIn('sed -n \'s/^theme_conf=//p\'', self.text)
+
+    def test_uses_the_resolved_socket_for_the_ipc_line(self):
+        self.assertIn('SOCKET_LINE="input-ipc-server=$SOCKET_PATH"', self.text)
+        self.assertIn('sed -n \'s/^socket=//p\'', self.text)
+
+    def test_falls_back_to_defaults_when_the_cli_yields_nothing(self):
+        self.assertIn('could not read paths from the CLI', self.text)
+        # The guarded appends and the never-clobber guarantee still hold.
+        self.assertIn('grep -q "omarchy-theme.conf"', self.text)
+        self.assertIn('grep -q "input-ipc-server"', self.text)
 
 
 if __name__ == "__main__":

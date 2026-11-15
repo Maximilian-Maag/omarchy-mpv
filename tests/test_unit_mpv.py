@@ -466,6 +466,12 @@ class Commands(unittest.TestCase):
         self.assertIn("o.bind", dest.read_text())
         self.assertNotIn(mpv.KEYBINDING_TOKEN, dest.read_text())
 
+    def test_paths_prints_the_resolved_paths(self):
+        rc, text = self.run_cli("paths")
+        self.assertEqual(rc, 0)
+        self.assertIn("theme_conf=%s" % mpv.theme_conf_path(), text)
+        self.assertIn("socket=%s" % mpv.socket_path(), text)
+
 
 class SendCommand(unittest.TestCase):
     def setUp(self):

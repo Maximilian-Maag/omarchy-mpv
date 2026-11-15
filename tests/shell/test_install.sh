@@ -84,5 +84,57 @@ if (( n == 1 )); then ok "idempotent: one include= line"; else bad "duplicated i
 s="$(grep -c "input-ipc-server" "$MPV_DIR/mpv.conf")"
 if (( s == 1 )); then ok "idempotent: one input-ipc-server line"; else bad "duplicated socket line ($s)"; fi
 
+# ── custom config/mpv.json must drive the included paths (#3) ─────────────────
+# OMARCHY_MPV_CONFIG points the installer at a config with a custom
+# theme_conf_path / socket_path / keybinding; install.sh must honour all three.
+CUSTOM="$(mktemp -d)"
+export HOME="$CUSTOM/home"
+export XDG_CONFIG_HOME="$CUSTOM/config"
+export XDG_STATE_HOME="$CUSTOM/state"
+export XDG_RUNTIME_DIR="$CUSTOM/run"
+mkdir -p "$HOME" "$XDG_CONFIG_HOME/hypr" "$XDG_STATE_HOME/omarchy/current/theme" "$XDG_RUNTIME_DIR"
+cat > "$XDG_STATE_HOME/omarchy/current/theme/colors.toml" <<'TOML'
+mode = "dark"
+accent = "#82FB9C"
+selection = "#1f253a"
+muted = "#2d3450"
+dark_background = "#080910"
+background = "#0B0C16"
+foreground = "#ddf7ff"
+TOML
+printf -- '-- main\n' > "$XDG_CONFIG_HOME/hypr/hyprland.lua"
+cat > "$CUSTOM/mpv.json" <<JSON
+{
+  "theme_conf_path": "$CUSTOM/custom-theme.conf",
+  "socket_path": "$CUSTOM/custom.sock",
+  "keybinding": "SUPER + CTRL + K"
+}
+JSON
+
+OMARCHY_MPV_CONFIG="$CUSTOM/mpv.json" bash "$INSTALL" >"$CUSTOM/install.log" 2>&1
+rc=$?
+if (( rc == 0 )); then ok "custom-config install.sh exit 0"; else bad "custom-config install.sh exit $rc"; cat "$CUSTOM/install.log"; fi
+if [[ -f "$CUSTOM/custom-theme.conf" ]]; then
+  ok "custom theme fragment written to the configured path"
+else
+  bad "custom theme fragment missing"
+fi
+if grep -qF "include=$CUSTOM/custom-theme.conf" "$XDG_CONFIG_HOME/mpv/mpv.conf"; then
+  ok "include= points at the custom theme_conf_path"
+else
+  bad "include= did not use the custom path"; cat "$XDG_CONFIG_HOME/mpv/mpv.conf"
+fi
+if grep -qF "input-ipc-server=$CUSTOM/custom.sock" "$XDG_CONFIG_HOME/mpv/mpv.conf"; then
+  ok "input-ipc-server= points at the custom socket_path"
+else
+  bad "input-ipc-server= did not use the custom path"
+fi
+if grep -q 'o.bind("SUPER + CTRL + K", "mpv: open"' "$XDG_CONFIG_HOME/hypr/mpv-bindings.lua"; then
+  ok "installed binding uses the configured keybinding"
+else
+  bad "installed binding did not use the configured keybinding"
+fi
+rm -rf "$CUSTOM"
+
 echo
 if (( fail == 0 )); then echo "shell: all $pass passed"; exit 0; else echo "shell: $fail failed"; exit 1; fi
