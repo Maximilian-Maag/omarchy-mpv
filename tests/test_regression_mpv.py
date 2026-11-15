@@ -171,5 +171,44 @@ class ManifestContract(unittest.TestCase):
         self.assertEqual(manifest["version"], versions[0])
 
 
+OMARCHY_BINDINGS_DIR = pathlib.Path("/usr/share/omarchy/default/hypr/bindings")
+
+
+def omarchy_default_chords() -> set:
+    """Every chord ``o.bind()`` gives a description to in Omarchy's shipped bindings.
+
+    Read from the installed Omarchy (when present) so the plugin's own chord is
+    checked against the *real* defaults rather than a hand-copied list that drifts.
+    """
+    chords = set()
+    if not OMARCHY_BINDINGS_DIR.is_dir():
+        return chords
+    for path in sorted(OMARCHY_BINDINGS_DIR.glob("*.lua")):
+        for match in re.finditer(r'o\.bind\(\s*"([^"]+)"', path.read_text()):
+            chords.add(match.group(1))
+    return chords
+
+
+class KeybindingDoesNotCollide(unittest.TestCase):
+    """HAZARD: binding a chord Omarchy already ships steals that binding — the
+    old SUPER + SHIFT + ALT + M clobbered Omarchy's built-in 'Music TUI'. The
+    configured chord must not be any Omarchy default.
+    """
+
+    def test_shipped_keybinding_is_not_the_music_tui_chord(self):
+        self.assertNotEqual(mpv.load_config()["keybinding"], "SUPER + SHIFT + ALT + M")
+
+    def test_shipped_keybinding_does_not_collide_with_an_omarchy_default(self):
+        chords = omarchy_default_chords()
+        if not chords:
+            self.skipTest("Omarchy default bindings are not installed on this host")
+        self.assertNotIn(mpv.load_config()["keybinding"], chords)
+
+    def test_module_does_not_unbind_or_rebind_the_music_tui_chord(self):
+        text = (ROOT / "bin/bindings.lua").read_text()
+        self.assertNotIn('hl.unbind("SUPER + SHIFT + ALT + M")', text)
+        self.assertNotIn('o.bind("SUPER + SHIFT + ALT + M"', text)
+
+
 if __name__ == "__main__":
     unittest.main()

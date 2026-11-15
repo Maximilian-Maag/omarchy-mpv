@@ -82,7 +82,7 @@ mpv behind **Super** to coexist:
 | `Super + XF86AudioNext` | next |
 | `Super + XF86AudioPrev` | previous |
 | `Super + XF86AudioStop` | stop |
-| `Super + Shift + Alt + M` | open mpv |
+| `Super + Shift + Alt + V` | open mpv |
 
 ## Development
 

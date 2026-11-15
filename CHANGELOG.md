@@ -3,6 +3,26 @@
 All notable changes to omarchy-mpv are documented here. The newest heading must
 equal `version` in `manifest.json` (enforced by the policy check).
 
+## [0.1.1] - 2026-11-15
+
+### Fixed
+
+- **Keybinding collision.** The `open mpv` chord was `Super + Shift + Alt + M`,
+  which Omarchy already binds to its built-in **Music TUI**
+  (`default/hypr/bindings/applications.lua`); the module unbound it and stole
+  it. It is now `Super + Shift + Alt + V`, which collides with no Omarchy
+  default, and the regression suite pins that against the installed defaults.
+- **`config/mpv.json`'s `keybinding` is no longer display-only.** `bin/bindings.lua`
+  is now a template rendered by `omarchy-mpv bindings` (and `install.sh`) with
+  the configured chord, so editing the config changes the installed binding.
+- **`install.sh` honours `config/mpv.json`.** It reads the resolved
+  `theme_conf_path` / `socket_path` from the CLI (`omarchy-mpv paths`) and uses
+  them for the `include=` and `input-ipc-server=` lines, so a custom path is no
+  longer silently ignored (which yielded a fragment mpv never included).
+- **`theme --stdout --live` now applies `--live`.** Combining the two flags
+  returned before the live-IPC block; it now pushes the colours to a running
+  mpv (the confirmation goes to stderr so stdout stays a clean fragment).
+
 ## [0.1.0] - 2026-10-12
 
 ### Added
