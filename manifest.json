@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "Maximilian-Maag.mpv",
   "name": "mpv",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": "Maximilian-Maag",
   "license": "MIT",
   "description": "Integrates the installed mpv media player with Omarchy: reads the live colors.toml and generates an mpv theme fragment (subtitle, OSD and window colours) that your own mpv.conf includes, drives a running mpv (play/pause/next/prev/volume) over its JSON IPC socket, and adds Hyprland media-key bindings.",

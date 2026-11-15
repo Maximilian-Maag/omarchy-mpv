@@ -3,6 +3,18 @@
 All notable changes to omarchy-mpv are documented here. The newest heading must
 equal `version` in `manifest.json` (enforced by the policy check).
 
+## [0.2.0] - 2026-11-15
+
+### Added
+
+- **`install.sh --uninstall`.** The installer now reverses exactly what it added
+  and nothing else: the `/usr/local/bin` symlink (only when it points into this
+  checkout), the `theme-set` hook, the generated theme fragment, the rendered
+  keybinding module and its `require` block in `hyprland.lua`, and the guarded
+  `include=` / `input-ipc-server=` lines in `mpv.conf` — a pre-existing socket
+  line the installer reconciled is restored verbatim. `tests/shell/test_uninstall.sh`
+  pins a full install → uninstall round-trip as byte-identical (sha256).
+
 ## [0.1.1] - 2026-11-15
 
 ### Fixed
