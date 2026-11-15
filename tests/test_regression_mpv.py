@@ -427,5 +427,37 @@ class KeybindingInjectionRejected(unittest.TestCase):
             self.assertFalse((root / "hypr" / "mpv-bindings.lua").exists())
 
 
+class AtomicWrites(unittest.TestCase):
+    """HAZARD (#9): the theme fragment and bindings module were written with
+    write_text (O_TRUNC in place), so a crash mid-write left a truncated file
+    that mpv/Hyprland would load. Writes stage to a temp file and os.replace.
+    """
+
+    def test_destination_is_untouched_until_the_atomic_swap(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as t:
+            dest = pathlib.Path(t) / "fragment.conf"
+            dest.write_text("OLD")
+            with mock.patch.object(mpv.os, "replace", side_effect=OSError("boom")):
+                with self.assertRaises(OSError):
+                    mpv.write_atomic(dest, "NEW")
+            # The new content never reached the destination by truncation.
+            self.assertEqual(dest.read_text(), "OLD")
+
+    def test_write_atomic_creates_parents_and_leaves_no_temp(self):
+        with tempfile.TemporaryDirectory() as t:
+            dest = pathlib.Path(t) / "a" / "b" / "fragment.conf"
+            mpv.write_atomic(dest, "CONTENT")
+            self.assertEqual(dest.read_text(), "CONTENT")
+            self.assertFalse((dest.parent / (dest.name + ".tmp")).exists())
+
+    def test_theme_and_bindings_go_through_write_atomic(self):
+        src = CLI.read_text()
+        theme_body = src.split("def cmd_theme", 1)[1].split("def cmd_send", 1)[0]
+        bindings_body = src.split("def cmd_bindings", 1)[1].split("def cmd_paths", 1)[0]
+        self.assertIn("write_atomic(out, conf)", theme_body)
+        self.assertIn("write_atomic(dest, rendered)", bindings_body)
+
+
 if __name__ == "__main__":
     unittest.main()

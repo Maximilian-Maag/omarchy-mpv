@@ -348,6 +348,19 @@ def apply_live(cfg: dict, colors: dict, override: str | None = None) -> bool:
     return True
 
 
+def write_atomic(path: pathlib.Path, text: str) -> None:
+    """Write ``text`` to ``path`` atomically via a same-dir temp + ``os.replace``.
+
+    A crash or interrupt mid-write must not leave a truncated fragment (mpv
+    silently loads a partial config; Hyprland fails to source a truncated Lua
+    module). The temp-then-rename contract is the one omarchy-obsidian uses (#9).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+
 def cmd_theme(args) -> int:
     cfg = load_config(args.config)
     colors_path = theme_colors_path()
@@ -360,8 +373,7 @@ def cmd_theme(args) -> int:
         sys.stdout.write(conf)
     else:
         out = theme_conf_path(cfg)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(conf)
+        write_atomic(out, conf)
         print("omarchy-mpv: wrote %s" % out)
         name = resolve_theme_name(colors, theme_search_dirs())
         if name:
@@ -417,7 +429,7 @@ def cmd_bindings(args) -> int:
     except ValueError as exc:
         print("omarchy-mpv: refusing to write the bindings module: %s" % exc, file=sys.stderr)
         return 1
-    dest.write_text(rendered)
+    write_atomic(dest, rendered)
     require = 'require("hypr.mpv-bindings")'
     main = hypr / "hyprland.lua"
     if main.is_file():
