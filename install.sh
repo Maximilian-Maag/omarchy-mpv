@@ -63,11 +63,23 @@ else
     printf '\n# omarchy-mpv theme\n%s\n' "$THEME_LINE" >> "$MPV_CONF"
     echo "  Added include= to $MPV_CONF (your config is otherwise untouched)."
   fi
-  if grep -qF "input-ipc-server=$SOCKET_PATH" "$MPV_CONF" || grep -q "input-ipc-server" "$MPV_CONF"; then
-    echo "  mpv.conf already exposes an IPC socket."
+  if grep -qF "input-ipc-server=$SOCKET_PATH" "$MPV_CONF"; then
+    echo "  mpv.conf already exposes the plugin's IPC socket."
   else
+    # The guard is path-aware: only the plugin's exact socket line counts as
+    # done. A pre-existing line at some other path would otherwise shadow ours
+    # (anchor grep matches ANY input-ipc-server), leaving `send`/`theme --live`
+    # permanently dead while install reported success (#6). Reconcile it by
+    # commenting it out (its text is preserved) and add ours last.
+    if grep -qE '^[[:space:]]*input-ipc-server=' "$MPV_CONF"; then
+      sed -i -E 's|^([[:space:]]*input-ipc-server=.*)|# omarchy-mpv: superseded \1|' "$MPV_CONF"
+      echo "  WARNING: $MPV_CONF already set input-ipc-server — commented it out so the plugin's socket is the active one."
+    fi
     printf '\n# omarchy-mpv IPC socket\n%s\n' "$SOCKET_LINE" >> "$MPV_CONF"
     echo "  Added input-ipc-server= to $MPV_CONF."
+    if ! grep -qF "$SOCKET_LINE" "$MPV_CONF"; then
+      echo "  WARNING: could not add $SOCKET_LINE to $MPV_CONF — add it by hand so 'send' and 'theme --live' work."
+    fi
   fi
 fi
 

@@ -153,5 +153,44 @@ else
 fi
 rm -rf "$CUSTOM"
 
+# ── a pre-existing input-ipc-server line must not disable the plugin (#6) ──────
+# A user's own socket path used to make install silently skip adding the
+# plugin's socket, leaving `send`/`theme --live` permanently dead.
+FOREIGN="$(mktemp -d)"
+export HOME="$FOREIGN/home"
+export XDG_CONFIG_HOME="$FOREIGN/config"
+export XDG_STATE_HOME="$FOREIGN/state"
+export XDG_RUNTIME_DIR="$FOREIGN/run"
+mkdir -p "$HOME" "$XDG_CONFIG_HOME/mpv" "$XDG_CONFIG_HOME/hypr" \
+         "$XDG_STATE_HOME/omarchy/current/theme" "$XDG_RUNTIME_DIR"
+cat > "$XDG_STATE_HOME/omarchy/current/theme/colors.toml" <<'TOML'
+mode = "dark"
+accent = "#82FB9C"
+background = "#0B0C16"
+foreground = "#ddf7ff"
+TOML
+printf -- '-- main\n' > "$XDG_CONFIG_HOME/hypr/hyprland.lua"
+printf 'input-ipc-server=/tmp/myown-mpv.sock\n' > "$XDG_CONFIG_HOME/mpv/mpv.conf"
+
+bash "$INSTALL" >"$FOREIGN/install.log" 2>&1
+rc=$?
+if (( rc == 0 )); then ok "foreign-socket install.sh exit 0"; else bad "foreign-socket install.sh exit $rc"; cat "$FOREIGN/install.log"; fi
+if grep -qF "input-ipc-server=$XDG_RUNTIME_DIR/omarchy-mpv.sock" "$XDG_CONFIG_HOME/mpv/mpv.conf"; then
+  ok "plugin socket added despite a pre-existing socket line"
+else
+  bad "plugin socket was NOT added"; cat "$XDG_CONFIG_HOME/mpv/mpv.conf"
+fi
+if grep -qF "# omarchy-mpv: superseded input-ipc-server=/tmp/myown-mpv.sock" "$XDG_CONFIG_HOME/mpv/mpv.conf"; then
+  ok "pre-existing socket line reconciled (commented, not lost)"
+else
+  bad "pre-existing socket line was not reconciled"; cat "$XDG_CONFIG_HOME/mpv/mpv.conf"
+fi
+if grep -q "commented it out" "$FOREIGN/install.log"; then
+  ok "install warned about the pre-existing socket line"
+else
+  bad "no warning about the pre-existing socket line"
+fi
+rm -rf "$FOREIGN"
+
 echo
 if (( fail == 0 )); then echo "shell: all $pass passed"; exit 0; else echo "shell: $fail failed"; exit 1; fi

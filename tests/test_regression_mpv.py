@@ -105,9 +105,11 @@ class SocketNotClobbered(unittest.TestCase):
     input-ipc-server the user already set.
     """
 
-    def test_install_guards_the_socket_line(self):
+    def test_install_guard_is_path_aware(self):
+        # Only the plugin's exact socket line counts as done — not any
+        # input-ipc-server line (#6).
         text = (ROOT / "install.sh").read_text()
-        self.assertIn('grep -q "input-ipc-server"', text)
+        self.assertIn('grep -qF "input-ipc-server=$SOCKET_PATH"', text)
 
     def test_socket_is_not_the_theme_fragment(self):
         self.assertNotEqual(mpv.socket_path({}), mpv.theme_conf_path({}))
@@ -261,7 +263,7 @@ class InstallHonoursConfiguredPaths(unittest.TestCase):
         self.assertIn('could not read paths from the CLI', self.text)
         # The guarded appends and the never-clobber guarantee still hold.
         self.assertIn('grep -q "omarchy-theme.conf"', self.text)
-        self.assertIn('grep -q "input-ipc-server"', self.text)
+        self.assertIn('grep -qF "input-ipc-server=$SOCKET_PATH"', self.text)
 
 
 class StdoutAndLiveCompose(unittest.TestCase):
@@ -333,6 +335,24 @@ class ClosingHintUsesConfiguredChord(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             mpv.main(["paths"])
         self.assertIn("keybinding=%s" % mpv.DEFAULT_CONFIG["keybinding"], out.getvalue())
+
+
+class ForeignSocketDoesNotDisableThePlugin(unittest.TestCase):
+    """HAZARD (#6): the socket guard matched ANY input-ipc-server line, so a
+    user's own socket line made the plugin silently never add its own; ``send``
+    and ``theme --live`` were then permanently dead while install reported
+    success. The guard must be path-aware, reconcile a stale line, and warn.
+    """
+
+    def setUp(self):
+        self.text = (ROOT / "install.sh").read_text()
+
+    def test_reconciles_a_preexisting_socket_line(self):
+        self.assertIn("# omarchy-mpv: superseded", self.text)
+        self.assertIn("^[[:space:]]*input-ipc-server=", self.text)
+
+    def test_warns_when_the_socket_cannot_be_added(self):
+        self.assertIn("could not add", self.text)
 
 
 if __name__ == "__main__":
