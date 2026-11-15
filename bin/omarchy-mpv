@@ -329,17 +329,22 @@ def cmd_theme(args) -> int:
     conf = build_conf(colors)
     if args.stdout:
         sys.stdout.write(conf)
-        return 0
-    out = theme_conf_path(cfg)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(conf)
-    print("omarchy-mpv: wrote %s" % out)
-    name = resolve_theme_name(colors, theme_search_dirs())
-    if name:
-        print("omarchy-mpv: applied theme: %s" % name)
+    else:
+        out = theme_conf_path(cfg)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(conf)
+        print("omarchy-mpv: wrote %s" % out)
+        name = resolve_theme_name(colors, theme_search_dirs())
+        if name:
+            print("omarchy-mpv: applied theme: %s" % name)
     if args.live:
         if apply_live(cfg, colors, args.socket):
-            print("omarchy-mpv: applied theme live to the running mpv")
+            # With --stdout, keep stdout a clean fragment: report on stderr.
+            message = "omarchy-mpv: applied theme live to the running mpv"
+            if args.stdout:
+                print(message, file=sys.stderr)
+            else:
+                print(message)
     return 0
 
 

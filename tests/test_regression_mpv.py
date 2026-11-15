@@ -5,9 +5,13 @@ Each test fails if the guard is removed, and names the hazard it pins.
 
 import importlib.machinery
 import importlib.util
+import contextlib
+import io
 import json
+import os
 import pathlib
 import re
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -258,6 +262,54 @@ class InstallHonoursConfiguredPaths(unittest.TestCase):
         # The guarded appends and the never-clobber guarantee still hold.
         self.assertIn('grep -q "omarchy-theme.conf"', self.text)
         self.assertIn('grep -q "input-ipc-server"', self.text)
+
+
+class StdoutAndLiveCompose(unittest.TestCase):
+    """HAZARD: `theme --stdout` returned before the `if args.live:` block, so
+    combining the two documented flags made --live a silent no-op that still
+    exited 0 (#4). --live must apply even when the fragment goes to stdout.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = pathlib.Path(self.tmp.name)
+        theme = base / "state/omarchy/current/theme"
+        theme.mkdir(parents=True)
+        (theme / "colors.toml").write_text(
+            'accent = "#82FB9C"\nbackground = "#0B0C16"\nforeground = "#ddf7ff"\n')
+        self._env = {k: os.environ.get(k) for k in
+                     ("XDG_STATE_HOME", "XDG_CONFIG_HOME", "XDG_RUNTIME_DIR")}
+        os.environ["XDG_STATE_HOME"] = str(base / "state")
+        os.environ["XDG_CONFIG_HOME"] = str(base / "config")
+        os.environ["XDG_RUNTIME_DIR"] = str(base / "run")
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        for key, value in self._env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    def test_stdout_plus_live_still_applies_live(self):
+        from unittest import mock
+        applied = []
+
+        def fake_apply(cfg, colors, override=None):
+            applied.append(True)
+            return True
+
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(mpv, "apply_live", side_effect=fake_apply), \
+             contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = mpv.main(["theme", "--stdout", "--live"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(applied, [True], "--live was a silent no-op under --stdout")
+        self.assertIn("sub-color=", out.getvalue())
+        # stdout stays a clean fragment; the confirmation goes to stderr.
+        self.assertNotIn("applied theme live", out.getvalue())
+        self.assertIn("applied theme live", err.getvalue())
 
 
 if __name__ == "__main__":

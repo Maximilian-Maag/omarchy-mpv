@@ -451,6 +451,23 @@ class Commands(unittest.TestCase):
         self.assertIn("applied theme live", text)
         self.assertIn(["set_property", "sub-color", "#ddf7ff"], server.commands)
 
+    def test_theme_stdout_live_applies_over_ipc(self):
+        server = FakeMpv(self.sock)
+        self.addCleanup(server.close)
+        rc, text = self.run_cli("--socket", str(self.sock), "theme", "--stdout", "--live")
+        self.assertEqual(rc, 0)
+        # stdout still carries the fragment ...
+        self.assertIn("sub-color=", text)
+        # ... but --live is no longer a silent no-op.
+        self.assertIn("applied theme live", text)
+        self.assertIn(["set_property", "sub-color", "#ddf7ff"], server.commands)
+        self.assertFalse(mpv.theme_conf_path().exists())
+
+    def test_theme_stdout_live_without_socket_still_prints_fragment(self):
+        rc, text = self.run_cli("theme", "--stdout", "--live")
+        self.assertEqual(rc, 0)
+        self.assertIn("sub-color=", text)
+
     def test_status_runs(self):
         rc, text = self.run_cli("status")
         self.assertEqual(rc, 0)

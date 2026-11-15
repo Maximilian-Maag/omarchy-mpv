@@ -121,6 +121,16 @@ class CliIntegration(unittest.TestCase):
         self.assertIn("sub-color=", proc.stdout)
         self.assertFalse((self.config / "mpv/omarchy-theme.conf").exists())
 
+    def test_theme_stdout_live_applies_over_ipc(self):
+        sock = self.base / "mpv.sock"
+        server = FakeMpv(sock)
+        self.addCleanup(server.close)
+        proc = self.run_cli("--socket", str(sock), "theme", "--stdout", "--live")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("sub-color=", proc.stdout)
+        self.assertIn(["set_property", "sub-color", "#ddf7ff"], server.commands)
+        self.assertFalse((self.config / "mpv/omarchy-theme.conf").exists())
+
     def test_theme_without_applied_theme_fails(self):
         (self.state / "omarchy/current/theme/colors.toml").unlink()
         proc = self.run_cli("theme")
