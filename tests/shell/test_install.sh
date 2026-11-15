@@ -192,5 +192,32 @@ else
 fi
 rm -rf "$FOREIGN"
 
+# ── a non-dict config must not kill the installer under set -e (#7) ───────────
+# config/mpv.json containing `true` used to make load_config raise TypeError;
+# install.sh's unguarded `bindings` call then aborted the install.
+NONDICT="$(mktemp -d)"
+export HOME="$NONDICT/home"
+export XDG_CONFIG_HOME="$NONDICT/config"
+export XDG_STATE_HOME="$NONDICT/state"
+export XDG_RUNTIME_DIR="$NONDICT/run"
+mkdir -p "$HOME" "$XDG_CONFIG_HOME/hypr" "$XDG_STATE_HOME/omarchy/current/theme" "$XDG_RUNTIME_DIR"
+cat > "$XDG_STATE_HOME/omarchy/current/theme/colors.toml" <<'TOML'
+mode = "dark"
+accent = "#82FB9C"
+background = "#0B0C16"
+foreground = "#ddf7ff"
+TOML
+printf -- '-- main\n' > "$XDG_CONFIG_HOME/hypr/hyprland.lua"
+printf 'true\n' > "$NONDICT/mpv.json"
+OMARCHY_MPV_CONFIG="$NONDICT/mpv.json" bash "$INSTALL" >"$NONDICT/install.log" 2>&1
+rc=$?
+if (( rc == 0 )); then ok "non-dict config install.sh exit 0"; else bad "non-dict config install.sh exit $rc"; cat "$NONDICT/install.log"; fi
+if grep -q "Done." "$NONDICT/install.log"; then
+  ok "non-dict config still reaches the Done. line (no half-applied install)"
+else
+  bad "non-dict config aborted before Done."; cat "$NONDICT/install.log"
+fi
+rm -rf "$NONDICT"
+
 echo
 if (( fail == 0 )); then echo "shell: all $pass passed"; exit 0; else echo "shell: $fail failed"; exit 1; fi

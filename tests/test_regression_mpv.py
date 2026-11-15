@@ -355,5 +355,36 @@ class ForeignSocketDoesNotDisableThePlugin(unittest.TestCase):
         self.assertIn("could not add", self.text)
 
 
+class NonDictConfigIsIgnored(unittest.TestCase):
+    """HAZARD (#7): ``data.update(json.loads(...))`` only caught ValueError, so
+    a syntactically valid non-dict config (true / 5 / null / a list) raised
+    TypeError inside load_config; install.sh called ``bindings`` unguarded under
+    set -e and died, leaving a half-applied install. Non-dict configs must be
+    ignored and the bindings call guarded.
+    """
+
+    def test_non_dict_config_falls_back_to_defaults(self):
+        for raw in ("true", "false", "5", "null", '["a", "b"]'):
+            with tempfile.TemporaryDirectory() as t:
+                p = pathlib.Path(t) / "mpv.json"
+                p.write_text(raw)
+                self.assertEqual(mpv.load_config(p), mpv.DEFAULT_CONFIG, raw)
+
+    def test_cli_bindings_with_a_non_dict_config_does_not_raise(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as t:
+            root = pathlib.Path(t)
+            (root / "hypr").mkdir()
+            cfg = root / "mpv.json"
+            cfg.write_text("true")
+            with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": str(root)}):
+                rc = mpv.main(["--config", str(cfg), "bindings"])
+            self.assertEqual(rc, 0)
+
+    def test_install_guards_the_bindings_call(self):
+        text = (ROOT / "install.sh").read_text()
+        self.assertIn("bindings || echo", text)
+
+
 if __name__ == "__main__":
     unittest.main()

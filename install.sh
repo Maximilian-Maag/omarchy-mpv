@@ -96,7 +96,7 @@ HYPR_MAIN="$HYPR_CONFIG_DIR/hyprland.lua"
 if [[ -f "$HYPR_MAIN" ]]; then
   # The CLI renders bin/bindings.lua with the configured `keybinding`, so the
   # installed module always matches config/mpv.json.
-  "$BIN_SRC" "${CLI_ARGS[@]}" bindings
+  "$BIN_SRC" "${CLI_ARGS[@]}" bindings || echo "  WARNING: could not install the keybindings module."
 else
   echo "  WARNING: $HYPR_MAIN not found — add: require(\"hypr.mpv-bindings\")"
 fi

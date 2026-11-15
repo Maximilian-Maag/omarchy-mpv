@@ -107,14 +107,22 @@ def theme_search_dirs() -> list[pathlib.Path]:
 
 
 def load_config(path: pathlib.Path | None = None) -> dict:
-    """Read config/mpv.json, falling back to the built-in defaults."""
+    """Read config/mpv.json, falling back to the built-in defaults.
+
+    Only a JSON *object* is merged. A syntactically valid but non-dict document
+    (``5``, ``true``, ``null``, a list) must not reach ``dict.update`` — that
+    raised ``TypeError`` and, via install.sh's unguarded ``bindings`` call under
+    ``set -e``, left a half-applied install (#7).
+    """
     path = pathlib.Path(path) if path is not None else (plugin_dir() / "config" / "mpv.json")
     data = dict(DEFAULT_CONFIG)
     if path.is_file():
         try:
-            data.update(json.loads(path.read_text()))
+            loaded = json.loads(path.read_text())
         except ValueError:
-            pass
+            loaded = None
+        if isinstance(loaded, dict):
+            data.update(loaded)
     return data
 
 
