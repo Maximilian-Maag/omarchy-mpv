@@ -210,6 +210,26 @@ class BuildConf(unittest.TestCase):
 
 
 class ResolveThemeName(unittest.TestCase):
+    def setUp(self):
+        # Isolate XDG_STATE_HOME so the live theme.name is absent by default —
+        # otherwise the real machine's applied theme would leak into the match.
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.state = pathlib.Path(self.tmp.name) / "state"
+        (self.state / "omarchy/current").mkdir(parents=True)
+        self._env = os.environ.get("XDG_STATE_HOME")
+        os.environ["XDG_STATE_HOME"] = str(self.state)
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        if self._env is None:
+            os.environ.pop("XDG_STATE_HOME", None)
+        else:
+            os.environ["XDG_STATE_HOME"] = self._env
+
+    def _name(self, value):
+        (self.state / "omarchy/current/theme.name").write_text(value)
+
     def _theme(self, root, name, body):
         d = root / name
         d.mkdir()
@@ -236,6 +256,22 @@ class ResolveThemeName(unittest.TestCase):
             root = pathlib.Path(t)
             (root / "empty").mkdir()
             self.assertEqual(mpv.resolve_theme_name({"a": "b"}, [root / "empty"]), "")
+
+    def test_live_name_wins_over_colour_match(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = pathlib.Path(t)
+            self._theme(root, "gruvbox", "accent = \"#d79921\"\n")
+            self._name("Nord\n")
+            self.assertEqual(mpv.resolve_theme_name({"accent": "#d79921"}, [root / "gruvbox"]),
+                             "nord")
+
+    def test_live_name_resolves_a_non_catalogued_theme(self):
+        self._name("my-custom-theme\n")
+        self.assertEqual(mpv.resolve_theme_name({"accent": "#000000"}, []),
+                         "my-custom-theme")
+
+    def test_missing_name_file_yields_empty(self):
+        self.assertEqual(mpv.omarchy_theme_name(), "")
 
 
 class ConfigAndPaths(unittest.TestCase):
