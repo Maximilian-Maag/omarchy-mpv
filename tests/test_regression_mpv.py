@@ -386,5 +386,46 @@ class NonDictConfigIsIgnored(unittest.TestCase):
         self.assertIn("bindings || echo", text)
 
 
+class KeybindingInjectionRejected(unittest.TestCase):
+    """HAZARD (#8): render_bindings substituted the configured keybinding
+    verbatim into a Lua string literal in a module Hyprland ``require``s and
+    executes, so a crafted value injects arbitrary Lua. A chord must be
+    validated before it is substituted.
+    """
+
+    HOSTILE = ('SUPER + V")\nhl.unbind("SUPER + Q")\n'
+               'o.bind("SUPER + Q", "pwned", "touch /tmp/PWNED")\n--')
+
+    def test_hostile_keybinding_is_rejected(self):
+        with self.assertRaises(ValueError):
+            mpv.keybinding({"keybinding": self.HOSTILE})
+
+    def test_hostile_keybinding_is_not_rendered(self):
+        with self.assertRaises(ValueError):
+            mpv.render_bindings({"keybinding": self.HOSTILE}, "{{KEYBINDING}}\n")
+
+    def test_a_valid_chord_is_still_accepted(self):
+        self.assertEqual(mpv.keybinding({"keybinding": "SUPER + CTRL + K"}),
+                         "SUPER + CTRL + K")
+
+    def test_empty_chord_is_rejected_by_the_validator(self):
+        with self.assertRaises(ValueError):
+            mpv.validate_keybinding("")
+
+    def test_cli_bindings_refuses_a_hostile_config(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as t:
+            root = pathlib.Path(t)
+            (root / "hypr").mkdir()
+            cfg = root / "mpv.json"
+            cfg.write_text(json.dumps({"keybinding": self.HOSTILE}))
+            buf = io.StringIO()
+            with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": str(root)}), \
+                 contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                rc = mpv.main(["--config", str(cfg), "bindings"])
+            self.assertNotEqual(rc, 0)
+            self.assertFalse((root / "hypr" / "mpv-bindings.lua").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
